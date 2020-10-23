@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace NLP Authors.
+# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import hashlib
 import logging
 import os
 
-import nlp
+import datasets
 
 
 _DESCRIPTION = """\
@@ -76,28 +76,28 @@ _ARTICLE = "article"
 
 _SUPPORTED_VERSIONS = [
     # Using cased version.
-    nlp.Version("3.0.0", "Using cased version."),
+    datasets.Version("3.0.0", "Using cased version."),
     # Same data as 0.0.2
-    nlp.Version("1.0.0", "New split API (https://tensorflow.org/datasets/splits)"),
+    datasets.Version("1.0.0", ""),
     # Having the model predict newline separators makes it easier to evaluate
     # using summary-level ROUGE.
-    nlp.Version("2.0.0", "Separate target sentences with newline."),
+    datasets.Version("2.0.0", "Separate target sentences with newline."),
 ]
 
 
-_DEFAULT_VERSION = nlp.Version("3.0.0", "Using cased version.")
+_DEFAULT_VERSION = datasets.Version("3.0.0", "Using cased version.")
 
 
-class CnnDailymailConfig(nlp.BuilderConfig):
+class CnnDailymailConfig(datasets.BuilderConfig):
     """BuilderConfig for CnnDailymail."""
 
     def __init__(self, **kwargs):
         """BuilderConfig for CnnDailymail.
 
-    Args:
+        Args:
 
-      **kwargs: keyword arguments forwarded to super.
-    """
+          **kwargs: keyword arguments forwarded to super.
+        """
         super(CnnDailymailConfig, self).__init__(**kwargs)
 
 
@@ -117,6 +117,12 @@ def _get_url_hashes(path):
     return {url_hash(u): True for u in urls}
 
 
+def _get_hash_from_path(p):
+    """Extract hash from path."""
+    basename = os.path.basename(p)
+    return basename[0 : basename.find(".story")]
+
+
 def _find_files(dl_paths, publisher, url_dict):
     """Find files corresponding to urls."""
     if publisher == "cnn":
@@ -125,12 +131,11 @@ def _find_files(dl_paths, publisher, url_dict):
         top_dir = os.path.join(dl_paths["dm_stories"], "dailymail", "stories")
     else:
         logging.fatal("Unsupported publisher: %s", publisher)
-    files = os.listdir(top_dir)
+    files = sorted(os.listdir(top_dir))
 
     ret_files = []
     for p in files:
-        basename = os.path.basename(p)
-        if basename[0 : basename.find(".story")] in url_dict:
+        if _get_hash_from_path(p) in url_dict:
             ret_files.append(os.path.join(top_dir, p))
     return ret_files
 
@@ -139,11 +144,11 @@ def _subset_filenames(dl_paths, split):
     """Get filenames for a particular split."""
     assert isinstance(dl_paths, dict), dl_paths
     # Get filenames for a split.
-    if split == nlp.Split.TRAIN:
+    if split == datasets.Split.TRAIN:
         urls = _get_url_hashes(dl_paths["train_urls"])
-    elif split == nlp.Split.VALIDATION:
+    elif split == datasets.Split.VALIDATION:
         urls = _get_url_hashes(dl_paths["val_urls"])
-    elif split == nlp.Split.TEST:
+    elif split == datasets.Split.TEST:
         urls = _get_url_hashes(dl_paths["test_urls"])
     else:
         logging.fatal("Unsupported split: %s", split)
@@ -160,7 +165,7 @@ END_TOKENS = [".", "!", "?", "...", "'", "`", '"', DM_SINGLE_CLOSE_QUOTE, DM_DOU
 
 def _read_text_file(text_file):
     lines = []
-    with open(text_file, "r") as f:
+    with open(text_file, "r", encoding="utf-8") as f:
         for line in f:
             lines.append(line.strip())
     return lines
@@ -216,7 +221,7 @@ def _get_art_abs(story_file, tfds_version):
     return article, abstract
 
 
-class CnnDailymail(nlp.GeneratorBasedBuilder):
+class CnnDailymail(datasets.GeneratorBasedBuilder):
     """CNN/DailyMail non-anonymized summarization dataset."""
 
     BUILDER_CONFIGS = [
@@ -225,10 +230,16 @@ class CnnDailymail(nlp.GeneratorBasedBuilder):
     ]
 
     def _info(self):
-        # Should return a nlp.DatasetInfo object
-        return nlp.DatasetInfo(
+        # Should return a datasets.DatasetInfo object
+        return datasets.DatasetInfo(
             description=_DESCRIPTION,
-            features=nlp.Features({_ARTICLE: nlp.Value("string"), _HIGHLIGHTS: nlp.Value("string"),}),
+            features=datasets.Features(
+                {
+                    _ARTICLE: datasets.Value("string"),
+                    _HIGHLIGHTS: datasets.Value("string"),
+                    "id": datasets.Value("string"),
+                }
+            ),
             supervised_keys=None,
             homepage="https://github.com/abisee/cnn-dailymail",
             citation=_CITATION,
@@ -240,15 +251,18 @@ class CnnDailymail(nlp.GeneratorBasedBuilder):
 
     def _split_generators(self, dl_manager):
         dl_paths = dl_manager.download_and_extract(_DL_URLS)
-        train_files = _subset_filenames(dl_paths, nlp.Split.TRAIN)
+        train_files = _subset_filenames(dl_paths, datasets.Split.TRAIN)
         # Generate shared vocabulary
 
         return [
-            nlp.SplitGenerator(name=nlp.Split.TRAIN, gen_kwargs={"files": train_files}),
-            nlp.SplitGenerator(
-                name=nlp.Split.VALIDATION, gen_kwargs={"files": _subset_filenames(dl_paths, nlp.Split.VALIDATION)}
+            datasets.SplitGenerator(name=datasets.Split.TRAIN, gen_kwargs={"files": train_files}),
+            datasets.SplitGenerator(
+                name=datasets.Split.VALIDATION,
+                gen_kwargs={"files": _subset_filenames(dl_paths, datasets.Split.VALIDATION)},
             ),
-            nlp.SplitGenerator(name=nlp.Split.TEST, gen_kwargs={"files": _subset_filenames(dl_paths, nlp.Split.TEST)}),
+            datasets.SplitGenerator(
+                name=datasets.Split.TEST, gen_kwargs={"files": _subset_filenames(dl_paths, datasets.Split.TEST)}
+            ),
         ]
 
     def _generate_examples(self, files):
@@ -257,4 +271,8 @@ class CnnDailymail(nlp.GeneratorBasedBuilder):
             if not article or not highlights:
                 continue
             fname = os.path.basename(p)
-            yield fname, {_ARTICLE: article, _HIGHLIGHTS: highlights}
+            yield fname, {
+                _ARTICLE: article,
+                _HIGHLIGHTS: highlights,
+                "id": _get_hash_from_path(fname),
+            }

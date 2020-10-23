@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace NLP Authors.
+# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,25 +19,22 @@
 import json
 import os
 
-import nlp
+import datasets
 
 
 _CITATION = """
 @inproceedings{volske-etal-2017-tl,
-    title = "{TL};{DR}: Mining {R}eddit to Learn Automatic Summarization",
-    author = {V{\"o}lske, Michael  and
-      Potthast, Martin  and
-      Syed, Shahbaz  and
-      Stein, Benno},
-    booktitle = "Proceedings of the Workshop on New Frontiers in Summarization",
-    month = sep,
-    year = "2017",
-    address = "Copenhagen, Denmark",
-    publisher = "Association for Computational Linguistics",
-    url = "https://www.aclweb.org/anthology/W17-4508",
-    doi = "10.18653/v1/W17-4508",
-    pages = "59--63",
-    abstract = "Recent advances in automatic text summarization have used deep neural networks to generate high-quality abstractive summaries, but the performance of these models strongly depends on large amounts of suitable training data. We propose a new method for mining social media for author-provided summaries, taking advantage of the common practice of appending a {``}TL;DR{''} to long posts. A case study using a large Reddit crawl yields the Webis-TLDR-17 dataset, complementing existing corpora primarily from the news genre. Our technique is likely applicable to other social media sites and general web crawls.",
+    title = {TL;DR: Mining {R}eddit to Learn Automatic Summarization},
+    author = {V{\"o}lske, Michael  and Potthast, Martin  and Syed, Shahbaz  and Stein, Benno},
+    booktitle = {Proceedings of the Workshop on New Frontiers in Summarization},
+    month = {sep},
+    year = {2017},
+    address = {Copenhagen, Denmark},
+    publisher = {Association for Computational Linguistics},
+    url = {https://www.aclweb.org/anthology/W17-4508},
+    doi = {10.18653/v1/W17-4508},
+    pages = {59--63},
+    abstract = {Recent advances in automatic text summarization have used deep neural networks to generate high-quality abstractive summaries, but the performance of these models strongly depends on large amounts of suitable training data. We propose a new method for mining social media for author-provided summaries, taking advantage of the common practice of appending a {``}TL;DR{''} to long posts. A case study using a large Reddit crawl yields the Webis-TLDR-17 dataset, complementing existing corpora primarily from the news genre. Our technique is likely applicable to other social media sites and general web crawls.},
 }
 """
 
@@ -57,15 +54,17 @@ _SUMMARY = "summary"
 _ADDITIONAL_FEATURES = ["author", "body", "normalizedBody", "subreddit", "subreddit_id", "id"]
 
 
-class Reddit(nlp.GeneratorBasedBuilder):
+class Reddit(datasets.GeneratorBasedBuilder):
     """Reddit Dataset."""
 
-    VERSION = nlp.Version("1.0.0")
+    VERSION = datasets.Version("1.0.0")
 
     def _info(self):
-        return nlp.DatasetInfo(
+        return datasets.DatasetInfo(
             description=_DESCRIPTION,
-            features=nlp.Features({k: nlp.Value("string") for k in _ADDITIONAL_FEATURES + [_DOCUMENT, _SUMMARY]}),
+            features=datasets.Features(
+                {k: datasets.Value("string") for k in _ADDITIONAL_FEATURES + [_DOCUMENT, _SUMMARY]}
+            ),
             supervised_keys=None,
             homepage="https://github.com/webis-de/webis-tldr-17-corpus",
             citation=_CITATION,
@@ -75,8 +74,9 @@ class Reddit(nlp.GeneratorBasedBuilder):
         """Returns SplitGenerators."""
         dl_path = dl_manager.download_and_extract(_URL)
         return [
-            nlp.SplitGenerator(
-                name=nlp.Split.TRAIN, gen_kwargs={"path": os.path.join(dl_path, "corpus-webis-tldr-17.json")},
+            datasets.SplitGenerator(
+                name=datasets.Split.TRAIN,
+                gen_kwargs={"path": os.path.join(dl_path, "corpus-webis-tldr-17.json")},
             )
         ]
 

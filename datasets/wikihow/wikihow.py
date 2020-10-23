@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace NLP Authors.
+# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import csv
 import os
 import re
 
-import nlp
+import datasets
 
 
 _CITATION = """
@@ -67,35 +67,24 @@ _URLS = {
 }
 
 
-class WikihowConfig(nlp.BuilderConfig):
+class WikihowConfig(datasets.BuilderConfig):
     """BuilderConfig for Wikihow."""
 
     def __init__(self, filename=None, **kwargs):
         """BuilderConfig for Wikihow.
 
-    Args:
-      filename: filename of different configs for the dataset.
-      **kwargs: keyword arguments forwarded to super.
-    """
+        Args:
+          filename: filename of different configs for the dataset.
+          **kwargs: keyword arguments forwarded to super.
+        """
         # Version 1.1.0 remove empty document and summary strings.
         # Version 1.2.0 add train validation test split, add cleaning & filtering.
-        super(WikihowConfig, self).__init__(version=nlp.Version("1.2.0"), **kwargs)
+        super(WikihowConfig, self).__init__(version=datasets.Version("1.2.0"), **kwargs)
         self.filename = filename
 
 
-class Wikihow(nlp.GeneratorBasedBuilder):
+class Wikihow(datasets.GeneratorBasedBuilder):
     """WikiHow: A Large Scale Text Summarization Dataset."""
-
-    MANUAL_DOWNLOAD_INSTRUCTIONS = """\
-  You need to manually download two wikihow files. An overview of which files to download can be seen at https://github.com/mahnazkoupaee/WikiHow-Dataset.
-  You need to download the following two files manually:
-    1) https://ucsb.app.box.com/s/ap23l8gafpezf4tq3wapr6u8241zz358 and save the file under <path/to/folder>/wikihowAll.csv
-    2) https://ucsb.app.box.com/s/7yq601ijl1lzvlfu4rjdbbxforzd2oag and save the file under <path/to/folder>/wikihowSep.csv
-
-  The <path/to/folder> can e.g. be "~/manual_wikihow_data".
-
-  Wikihow can then be loaded using the following command `nlp.load("wikihow", data_file="<path/to/folder>")`.
-  """
 
     BUILDER_CONFIGS = [
         WikihowConfig(
@@ -107,13 +96,26 @@ class Wikihow(nlp.GeneratorBasedBuilder):
         WikihowConfig(name="sep", filename="wikihowSep.csv", description="use each paragraph and its summary."),
     ]
 
+    @property
+    def manual_download_instructions(self):
+        return """\
+  You need to manually download two wikihow files. An overview of which files to download can be seen at https://github.com/mahnazkoupaee/WikiHow-Dataset.
+  You need to download the following two files manually:
+    1) https://ucsb.app.box.com/s/ap23l8gafpezf4tq3wapr6u8241zz358 and save the file under <path/to/folder>/wikihowAll.csv
+    2) https://ucsb.app.box.com/s/7yq601ijl1lzvlfu4rjdbbxforzd2oag and save the file under <path/to/folder>/wikihowSep.csv
+
+  The <path/to/folder> can e.g. be "~/manual_wikihow_data".
+
+  Wikihow can then be loaded using the following command `datasets.load_dataset("wikihow", data_dir="<path/to/folder>")`.
+  """
+
     def _info(self):
         feature_names = [_DOCUMENT, _SUMMARY, "title"]
         if self.config.name == "sep":
             feature_names.extend(["overview", "sectionLabel"])
-        return nlp.DatasetInfo(
+        return datasets.DatasetInfo(
             description=_DESCRIPTION,
-            features=nlp.Features({k: nlp.Value("string") for k in feature_names}),
+            features=datasets.Features({k: datasets.Value("string") for k in feature_names}),
             supervised_keys=None,
             homepage="https://github.com/mahnazkoupaee/WikiHow-Dataset",
             citation=_CITATION,
@@ -124,7 +126,7 @@ class Wikihow(nlp.GeneratorBasedBuilder):
         dl_path = dl_manager.download_and_extract(_URLS)
         titles = {k: set() for k in dl_path}
         for k, path in dl_path.items():
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 for line in f:
                     titles[k].add(line.strip())
 
@@ -134,26 +136,37 @@ class Wikihow(nlp.GeneratorBasedBuilder):
 
         if not os.path.exists(path_to_manual_file):
             raise FileNotFoundError(
-                "{} does not exist. Make sure you insert a manual dir via `nlp.load('wikihow', data_dir=...)` that includes a file name {}. Manual download instructions: {})".format(
-                    path_to_manual_file, self.config.filename, self.MANUAL_DOWNLOAD_INSTRUCTIONS
+                "{} does not exist. Make sure you insert a manual dir via `datasets.load_dataset('wikihow', data_dir=...)` that includes a file name {}. Manual download instructions: {})".format(
+                    path_to_manual_file, self.config.filename, self.manual_download_instructions
                 )
             )
         return [
-            nlp.SplitGenerator(
-                name=nlp.Split.TRAIN, gen_kwargs={"path": path_to_manual_file, "title_set": titles["train"],},
+            datasets.SplitGenerator(
+                name=datasets.Split.TRAIN,
+                gen_kwargs={
+                    "path": path_to_manual_file,
+                    "title_set": titles["train"],
+                },
             ),
-            nlp.SplitGenerator(
-                name=nlp.Split.VALIDATION,
-                gen_kwargs={"path": path_to_manual_file, "title_set": titles["validation"],},
+            datasets.SplitGenerator(
+                name=datasets.Split.VALIDATION,
+                gen_kwargs={
+                    "path": path_to_manual_file,
+                    "title_set": titles["validation"],
+                },
             ),
-            nlp.SplitGenerator(
-                name=nlp.Split.TEST, gen_kwargs={"path": path_to_manual_file, "title_set": titles["test"],},
+            datasets.SplitGenerator(
+                name=datasets.Split.TEST,
+                gen_kwargs={
+                    "path": path_to_manual_file,
+                    "title_set": titles["test"],
+                },
             ),
         ]
 
     def _generate_examples(self, path=None, title_set=None):
         """Yields examples."""
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             reader = csv.reader(f)
             headers = next(reader)
             if self.config.name == "all" and headers != ["headline", "title", "text"]:

@@ -2,17 +2,15 @@
 
 from __future__ import absolute_import, division, print_function
 
-import collections
 import csv
 import glob
 import json
 import os
 import textwrap
-from pathlib import Path
 
 import six
 
-import nlp
+import datasets
 
 
 # TODO(xtreme): BibTeX citation
@@ -30,17 +28,17 @@ _CITATION = """\
 
 # TODO(xtrem):
 _DESCRIPTION = """\
-The Cross-lingual TRansfer Evaluation of Multilingual Encoders (XTREME) benchmark is a benchmark for the evaluation of 
-the cross-lingual generalization ability of pre-trained multilingual models. It covers 40 typologically diverse languages 
-(spanning 12 language families) and includes nine tasks that collectively require reasoning about different levels of 
-syntax and semantics. The languages in XTREME are selected to maximize language diversity, coverage in existing tasks, 
-and availability of training data. Among these are many under-studied languages, such as the Dravidian languages Tamil 
-(spoken in southern India, Sri Lanka, and Singapore), Telugu and Malayalam (spoken mainly in southern India), and the 
+The Cross-lingual TRansfer Evaluation of Multilingual Encoders (XTREME) benchmark is a benchmark for the evaluation of
+the cross-lingual generalization ability of pre-trained multilingual models. It covers 40 typologically diverse languages
+(spanning 12 language families) and includes nine tasks that collectively require reasoning about different levels of
+syntax and semantics. The languages in XTREME are selected to maximize language diversity, coverage in existing tasks,
+and availability of training data. Among these are many under-studied languages, such as the Dravidian languages Tamil
+(spoken in southern India, Sri Lanka, and Singapore), Telugu and Malayalam (spoken mainly in southern India), and the
 Niger-Congo languages Swahili and Yoruba, spoken in Africa.
 """
 _MLQA_LANG = ["ar", "de", "vi", "zh", "en", "es", "hi"]
 _XQUAD_LANG = ["ar", "de", "vi", "zh", "en", "es", "hi", "el", "ru", "th", "tr"]
-_PAWSX_LANG = ["de", "en", "fr", "ja", "ko", "zh"]
+_PAWSX_LANG = ["de", "en", "es", "fr", "ja", "ko", "zh"]
 _BUCC_LANG = ["de", "fr", "zh", "ru"]
 _TATOEBA_LANG = [
     "afr",
@@ -177,11 +175,11 @@ for lang in _UD_POS_LANG:
 
 _DESCRIPTIONS = {
     "tydiqa": textwrap.dedent(
-        """\Gold passage task (GoldP): Given a passage that is guaranteed to contain the 
-             answer, predict the single contiguous span of characters that answers the question. This is more similar to 
-             existing reading comprehension datasets (as opposed to the information-seeking task outlined above). 
-             This task is constructed with two goals in mind: (1) more directly comparing with prior work and (2) providing 
-             a simplified way for researchers to use TyDi QA by providing compatibility with existing code for SQuAD 1.1, 
+        """Gold passage task (GoldP): Given a passage that is guaranteed to contain the
+             answer, predict the single contiguous span of characters that answers the question. This is more similar to
+             existing reading comprehension datasets (as opposed to the information-seeking task outlined above).
+             This task is constructed with two goals in mind: (1) more directly comparing with prior work and (2) providing
+             a simplified way for researchers to use TyDi QA by providing compatibility with existing code for SQuAD 1.1,
              XQuAD, and MLQA. Toward these goals, the gold passage task differs from the primary task in several ways:
              only the gold answer passage is provided rather than the entire Wikipedia article;
              unanswerable questions have been discarded, similar to MLQA and XQuAD;
@@ -191,57 +189,57 @@ _DESCRIPTIONS = {
     ),
     "XNLI": textwrap.dedent(
         """
-          The Cross-lingual Natural Language Inference (XNLI) corpus is a crowd-sourced collection of 5,000 test and 
-          2,500 dev pairs for the MultiNLI corpus. The pairs are annotated with textual entailment and translated into 
-          14 languages: French, Spanish, German, Greek, Bulgarian, Russian, Turkish, Arabic, Vietnamese, Thai, Chinese, 
-          Hindi, Swahili and Urdu. This results in 112.5k annotated pairs. Each premise can be associated with the 
-          corresponding hypothesis in the 15 languages, summing up to more than 1.5M combinations. The corpus is made to 
-          evaluate how to perform inference in any language (including low-resources ones like Swahili or Urdu) when only 
-          English NLI data is available at training time. One solution is cross-lingual sentence encoding, for which XNLI 
+          The Cross-lingual Natural Language Inference (XNLI) corpus is a crowd-sourced collection of 5,000 test and
+          2,500 dev pairs for the MultiNLI corpus. The pairs are annotated with textual entailment and translated into
+          14 languages: French, Spanish, German, Greek, Bulgarian, Russian, Turkish, Arabic, Vietnamese, Thai, Chinese,
+          Hindi, Swahili and Urdu. This results in 112.5k annotated pairs. Each premise can be associated with the
+          corresponding hypothesis in the 15 languages, summing up to more than 1.5M combinations. The corpus is made to
+          evaluate how to perform inference in any language (including low-resources ones like Swahili or Urdu) when only
+          English NLI data is available at training time. One solution is cross-lingual sentence encoding, for which XNLI
           is an evaluation benchmark."""
     ),
     "PAWS-X": textwrap.dedent(
         """
-          This dataset contains 23,659 human translated PAWS evaluation pairs and 296,406 machine translated training 
-          pairs in six typologically distinct languages: French, Spanish, German, Chinese, Japanese, and Korean. All 
+          This dataset contains 23,659 human translated PAWS evaluation pairs and 296,406 machine translated training
+          pairs in six typologically distinct languages: French, Spanish, German, Chinese, Japanese, and Korean. All
           translated pairs are sourced from examples in PAWS-Wiki."""
     ),
     "XQuAD": textwrap.dedent(
         """\
-          XQuAD (Cross-lingual Question Answering Dataset) is a benchmark dataset for evaluating cross-lingual question 
-          answering performance. The dataset consists of a subset of 240 paragraphs and 1190 question-answer pairs from 
-          the development set of SQuAD v1.1 (Rajpurkar et al., 2016) together with their professional translations into 
-          ten languages: Spanish, German, Greek, Russian, Turkish, Arabic, Vietnamese, Thai, Chinese, and Hindi. Consequently, 
+          XQuAD (Cross-lingual Question Answering Dataset) is a benchmark dataset for evaluating cross-lingual question
+          answering performance. The dataset consists of a subset of 240 paragraphs and 1190 question-answer pairs from
+          the development set of SQuAD v1.1 (Rajpurkar et al., 2016) together with their professional translations into
+          ten languages: Spanish, German, Greek, Russian, Turkish, Arabic, Vietnamese, Thai, Chinese, and Hindi. Consequently,
           the dataset is entirely parallel across 11 languages."""
     ),
     "MLQA": textwrap.dedent(
         """\
           MLQA (MultiLingual Question Answering) is a benchmark dataset for evaluating cross-lingual question answering performance.
     MLQA consists of over 5K extractive QA instances (12K in English) in SQuAD format in seven languages - English, Arabic,
-    German, Spanish, Hindi, Vietnamese and Simplified Chinese. MLQA is highly parallel, with QA instances parallel between 
+    German, Spanish, Hindi, Vietnamese and Simplified Chinese. MLQA is highly parallel, with QA instances parallel between
     4 different languages on average."""
     ),
     "tatoeba": textwrap.dedent(
         """\
           his data is extracted from the Tatoeba corpus, dated Saturday 2018/11/17.
 
-          For each languages, we have selected 1000 English sentences and their translations, if available. Please check 
+          For each languages, we have selected 1000 English sentences and their translations, if available. Please check
           this paper for a description of the languages, their families and scripts as well as baseline results.
-        
-          Please note that the English sentences are not identical for all language pairs. This means that the results are 
-          not directly comparable across languages. In particular, the sentences tend to have less variety for several 
+
+          Please note that the English sentences are not identical for all language pairs. This means that the results are
+          not directly comparable across languages. In particular, the sentences tend to have less variety for several
           low-resource languages, e.g. "Tom needed water", "Tom needs water", "Tom is getting water", ...
                     """
     ),
     "bucc18": textwrap.dedent(
-        """\Building and Using Comparable Corpora
+        """Building and Using Comparable Corpora
           """
     ),
     "udpos": textwrap.dedent(
         """\
-    Universal Dependencies (UD) is a framework for consistent annotation of grammar (parts of speech, morphological 
-    features, and syntactic dependencies) across different human languages. UD is an open community effort with over 200 
-    contributors producing more than 100 treebanks in over 70 languages. If you’re new to UD, you should start by reading 
+    Universal Dependencies (UD) is a framework for consistent annotation of grammar (parts of speech, morphological
+    features, and syntactic dependencies) across different human languages. UD is an open community effort with over 200
+    contributors producing more than 100 treebanks in over 70 languages. If you’re new to UD, you should start by reading
     the first part of the Short Introduction and then browsing the annotation guidelines.
     """
     ),
@@ -254,8 +252,8 @@ _DESCRIPTIONS = {
     ),
     "PAN-X": textwrap.dedent(
         """\
-    The WikiANN dataset (Pan et al. 2017) is a dataset with NER annotations for PER, ORG and LOC. It has been 
-    constructed using the linked entities in Wikipedia pages for 282 different languages including Danish. The dataset 
+    The WikiANN dataset (Pan et al. 2017) is a dataset with NER annotations for PER, ORG and LOC. It has been
+    constructed using the linked entities in Wikipedia pages for 282 different languages including Danish. The dataset
     can be loaded with the DaNLP package:"""
     ),
 }
@@ -274,19 +272,19 @@ _CITATIONS = {
     "XNLI": textwrap.dedent(
         """\
           @InProceedings{conneau2018xnli,
-          author = "Conneau, Alexis
+          author = {Conneau, Alexis
                          and Rinott, Ruty
                          and Lample, Guillaume
                          and Williams, Adina
                          and Bowman, Samuel R.
                          and Schwenk, Holger
-                         and Stoyanov, Veselin",
-          title = "XNLI: Evaluating Cross-lingual Sentence Representations",
-          booktitle = "Proceedings of the 2018 Conference on Empirical Methods 
-                       in Natural Language Processing",
-          year = "2018",
-          publisher = "Association for Computational Linguistics",
-          location = "Brussels, Belgium",
+                         and Stoyanov, Veselin},
+          title = {XNLI: Evaluating Cross-lingual Sentence Representations},
+          booktitle = {Proceedings of the 2018 Conference on Empirical Methods
+                       in Natural Language Processing},
+          year = {2018},
+          publisher = {Association for Computational Linguistics},
+          location = {Brussels, Belgium},
         }"""
     ),
     "XQuAD": textwrap.dedent(
@@ -356,7 +354,7 @@ _CITATIONS = {
 }
 
 _TEXT_FEATURES = {
-    "XNLI": {"language": "language", "sentence1": "sentence1", "sentence2": "sentence2",},
+    "XNLI": {"language": "language", "sentence1": "sentence1", "sentence2": "sentence2"},
     "tydiqa": {"id": "id", "title": "title", "context": "context", "question": "question", "answers": "answers"},
     "XQuAD": {"id": "id", "context": "context", "question": "question", "answers": "answers"},
     "MLQA": {"id": "id", "title": "title", "context": "context", "question": "question", "answers": "answers"},
@@ -365,7 +363,7 @@ _TEXT_FEATURES = {
     "PAWS-X": {"sentence1": "sentence1", "sentence2": "sentence2"},
     "udpos": {"word": "", "pos_tag": ""},
     "SQuAD": {"id": "id", "title": "title", "context": "context", "question": "question", "answers": "answers"},
-    "PAN-X": {"word": "", "ner_tag": "", "lang": ""},
+    "PAN-X": {"words": "", "ner": "", "lang": ""},
 }
 _DATA_URLS = {
     "tydiqa": "https://storage.googleapis.com/tydiqa/",
@@ -394,7 +392,7 @@ _URLS = {
 }
 
 
-class XtremeConfig(nlp.BuilderConfig):
+class XtremeConfig(datasets.BuilderConfig):
     """BuilderConfig for Break"""
 
     def __init__(self, data_url, citation, url, text_features, **kwargs):
@@ -407,25 +405,18 @@ class XtremeConfig(nlp.BuilderConfig):
             label_classes
             **kwargs: keyword arguments forwarded to super.
         """
-        super(XtremeConfig, self).__init__(
-            version=nlp.Version("1.0.0", "New split API (https://tensorflow.org/datasets/splits)"), **kwargs
-        )
+        super(XtremeConfig, self).__init__(version=datasets.Version("1.0.0", ""), **kwargs)
         self.text_features = text_features
         self.data_url = data_url
         self.citation = citation
         self.url = url
 
 
-class Xtreme(nlp.GeneratorBasedBuilder):
+class Xtreme(datasets.GeneratorBasedBuilder):
     """TODO(xtreme): Short description of my dataset."""
 
     # TODO(xtreme): Set up version.
-    VERSION = nlp.Version("0.1.0")
-    MANUAL_DOWNLOAD_INSTRUCTIONS = """\
-     You need to manually download the AmazonPhotos.zip file on Amazon Cloud Drive
-     (https://www.amazon.com/clouddrive/share/d3KGCRCIYwhKJF0H3eWA26hjg2ZCRhjpEQtDL70FSBN) and save the file under <path/to/folder>AmazonPhotos.zip 
-    
-    """
+    VERSION = datasets.Version("0.1.0")
     BUILDER_CONFIGS = [
         XtremeConfig(
             name=name,
@@ -438,23 +429,41 @@ class Xtreme(nlp.GeneratorBasedBuilder):
         for name in _NAMES
     ]
 
+    @property
+    def manual_download_instructions(self):
+        if self.config.name.startswith("PAN-X"):
+            return """\
+             You need to manually download the AmazonPhotos.zip file on Amazon Cloud Drive
+             (https://www.amazon.com/clouddrive/share/d3KGCRCIYwhKJF0H3eWA26hjg2ZCRhjpEQtDL70FSBN). The folder containing the saved file
+             can be used to load the dataset via `datasets.load_dataset("xtreme", data_dir="<path/to/folder>").
+            """
+        return None
+
     def _info(self):
-        # TODO(xtreme): Specifies the nlp.DatasetInfo object
-        features = {text_feature: nlp.Value("string") for text_feature in six.iterkeys(self.config.text_features)}
+        # TODO(xtreme): Specifies the datasets.DatasetInfo object
+        features = {text_feature: datasets.Value("string") for text_feature in six.iterkeys(self.config.text_features)}
         if "answers" in features.keys():
-            features["answers"] = nlp.features.Sequence(
-                {"answer_start": nlp.Value("int32"), "text": nlp.Value("string")}
+            features["answers"] = datasets.features.Sequence(
+                {"answer_start": datasets.Value("int32"), "text": datasets.Value("string")}
             )
         if self.config.name.startswith("PAWS-X"):
-            features["label"] = nlp.Value("string")
+            features["label"] = datasets.Value("string")
         if self.config.name == "XNLI":
-            features["gold_label"] = nlp.Value("string")
+            features["gold_label"] = datasets.Value("string")
 
-        return nlp.DatasetInfo(
+        if self.config.name.startswith("PAN-X"):
+            features = datasets.Features(
+                {
+                    "words": datasets.Sequence(datasets.Value("string")),
+                    "ner": datasets.Sequence(datasets.Value("string")),
+                    "langs": datasets.Sequence(datasets.Value("string")),
+                }
+            )
+        return datasets.DatasetInfo(
             # This is the description that will appear on the datasets page.
             description=self.config.description + "\n" + _DESCRIPTION,
-            # nlp.features.FeatureConnectors
-            features=nlp.Features(
+            # datasets.features.FeatureConnectors
+            features=datasets.Features(
                 features
                 # These are the features of your dataset like images, labels ...
             ),
@@ -470,7 +479,7 @@ class Xtreme(nlp.GeneratorBasedBuilder):
     def _split_generators(self, dl_manager):
         """Returns SplitGenerators."""
         # TODO(xtreme): Downloads the data and defines the splits
-        # dl_manager is a nlp.download.DownloadManager that can be used to
+        # dl_manager is a datasets.download.DownloadManager that can be used to
         # download and extract URLs
 
         if self.config.name == "tydiqa":
@@ -482,13 +491,13 @@ class Xtreme(nlp.GeneratorBasedBuilder):
             }
             dl_dir = dl_manager.download_and_extract(urls_to_download)
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.TRAIN,
+                datasets.SplitGenerator(
+                    name=datasets.Split.TRAIN,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": dl_dir["train"]},
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION,
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": dl_dir["dev"]},
                 ),
@@ -497,11 +506,11 @@ class Xtreme(nlp.GeneratorBasedBuilder):
             dl_dir = dl_manager.download_and_extract(self.config.data_url)
             data_dir = os.path.join(dl_dir, "XNLI-1.0")
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.TEST, gen_kwargs={"filepath": os.path.join(data_dir, "xnli.test.tsv")}
+                datasets.SplitGenerator(
+                    name=datasets.Split.TEST, gen_kwargs={"filepath": os.path.join(data_dir, "xnli.test.tsv")}
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION, gen_kwargs={"filepath": os.path.join(data_dir, "xnli.dev.tsv")}
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION, gen_kwargs={"filepath": os.path.join(data_dir, "xnli.dev.tsv")}
                 ),
             ]
 
@@ -510,8 +519,8 @@ class Xtreme(nlp.GeneratorBasedBuilder):
             l1 = self.config.name.split(".")[1]
             l2 = self.config.name.split(".")[2]
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.TEST,
+                datasets.SplitGenerator(
+                    name=datasets.Split.TEST,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={
                         "filepath": os.path.join(
@@ -520,8 +529,8 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                         )
                     },
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION,
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={
                         "filepath": os.path.join(
@@ -538,8 +547,8 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                 os.path.join(self.config.data_url, "xquad.{}.json".format(lang))
             )
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION,
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": xquad_downloaded_file},
                 ),
@@ -549,18 +558,18 @@ class Xtreme(nlp.GeneratorBasedBuilder):
             paws_x_dir = dl_manager.download_and_extract(self.config.data_url)
             data_dir = os.path.join(paws_x_dir, "x-final", lang)
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION,
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": os.path.join(data_dir, "dev_2k.tsv")},
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.TEST,
+                datasets.SplitGenerator(
+                    name=datasets.Split.TEST,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": os.path.join(data_dir, "test_2k.tsv")},
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.TRAIN,
+                datasets.SplitGenerator(
+                    name=datasets.Split.TRAIN,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={
                         "filepath": os.path.join(data_dir, "translated_train.tsv")
@@ -579,8 +588,8 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                 os.path.join(self.config.data_url, "tatoeba.{}-eng.eng".format(lang))
             )
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION,
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": (tatoeba_source_data, tatoeba_eng_data)},
                 ),
@@ -594,13 +603,13 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                 os.path.join(self.config.data_url, "bucc2018-{}-en.sample-gold.tar.bz2".format(lang))
             )
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION,
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": os.path.join(bucc18_dl_dev_dir, "bucc2018", lang + "-en")},
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.TEST,
+                datasets.SplitGenerator(
+                    name=datasets.Split.TEST,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": os.path.join(bucc18_dl_test_dir, "bucc2018", lang + "-en")},
                 ),
@@ -611,30 +620,30 @@ class Xtreme(nlp.GeneratorBasedBuilder):
 
             lang = self.config.name.split(".")[1]
             data_dir = os.path.join(data_dir, "*_" + lang + "*")
-            folders = glob.glob(data_dir)
+            folders = sorted(glob.glob(data_dir))
 
             if lang == "Kazakh":
                 return [
-                    nlp.SplitGenerator(
-                        name=nlp.Split.TEST,
+                    datasets.SplitGenerator(
+                        name=datasets.Split.TEST,
                         # These kwargs will be passed to _generate_examples
                         gen_kwargs={
                             "filepath": [
                                 os.path.join(folder, file)
                                 for folder in folders
-                                for file in os.listdir(folder)
+                                for file in sorted(os.listdir(folder))
                                 if "test" in file and file.endswith(".conllu")
                             ]
                         },
                     ),
-                    nlp.SplitGenerator(
-                        name=nlp.Split.TRAIN,
+                    datasets.SplitGenerator(
+                        name=datasets.Split.TRAIN,
                         # These kwargs will be passed to _generate_examples
                         gen_kwargs={
                             "filepath": [
                                 os.path.join(folder, file)
                                 for folder in folders
-                                for file in os.listdir(folder)
+                                for file in sorted(os.listdir(folder))
                                 if "train" in file and file.endswith(".conllu")
                             ]
                         },
@@ -642,14 +651,14 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                 ]
             elif lang == "Tagalog" or lang == "Thai" or lang == "Yoruba":
                 return [
-                    nlp.SplitGenerator(
-                        name=nlp.Split.TEST,
+                    datasets.SplitGenerator(
+                        name=datasets.Split.TEST,
                         # These kwargs will be passed to _generate_examples
                         gen_kwargs={
                             "filepath": [
                                 os.path.join(folder, file)
                                 for folder in folders
-                                for file in os.listdir(folder)
+                                for file in sorted(os.listdir(folder))
                                 if "test" in file and file.endswith(".conllu")
                             ]
                         },
@@ -657,39 +666,39 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                 ]
             else:
                 return [
-                    nlp.SplitGenerator(
-                        name=nlp.Split.VALIDATION,
+                    datasets.SplitGenerator(
+                        name=datasets.Split.VALIDATION,
                         # These kwargs will be passed to _generate_examples
                         gen_kwargs={
                             "filepath": [
                                 os.path.join(folder, file)
                                 for folder in folders
-                                for file in os.listdir(folder)
+                                for file in sorted(os.listdir(folder))
                                 if "NYUAD" not in folder and "dev" in file and file.endswith(".conllu")
                             ]
                             # we exclude Arabic NYUAD which deos not contains any word, only _
                         },
                     ),
-                    nlp.SplitGenerator(
-                        name=nlp.Split.TEST,
+                    datasets.SplitGenerator(
+                        name=datasets.Split.TEST,
                         # These kwargs will be passed to _generate_examples
                         gen_kwargs={
                             "filepath": [
                                 os.path.join(folder, file)
                                 for folder in folders
-                                for file in os.listdir(folder)
+                                for file in sorted(os.listdir(folder))
                                 if "NYUAD" not in folder and "test" in file and file.endswith(".conllu")
                             ]
                         },
                     ),
-                    nlp.SplitGenerator(
-                        name=nlp.Split.TRAIN,
+                    datasets.SplitGenerator(
+                        name=datasets.Split.TRAIN,
                         # These kwargs will be passed to _generate_examples
                         gen_kwargs={
                             "filepath": [
                                 os.path.join(folder, file)
                                 for folder in folders
-                                for file in os.listdir(folder)
+                                for file in sorted(os.listdir(folder))
                                 if "NYUAD" not in folder and "train" in file and file.endswith(".conllu")
                             ]
                         },
@@ -705,40 +714,41 @@ class Xtreme(nlp.GeneratorBasedBuilder):
             downloaded_files = dl_manager.download_and_extract(urls_to_download)
 
             return [
-                nlp.SplitGenerator(name=nlp.Split.TRAIN, gen_kwargs={"filepath": downloaded_files["train"]}),
-                nlp.SplitGenerator(name=nlp.Split.VALIDATION, gen_kwargs={"filepath": downloaded_files["dev"]}),
+                datasets.SplitGenerator(name=datasets.Split.TRAIN, gen_kwargs={"filepath": downloaded_files["train"]}),
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION, gen_kwargs={"filepath": downloaded_files["dev"]}
+                ),
             ]
 
         if self.config.name.startswith("PAN-X"):
             path_to_manual_folder = os.path.abspath(os.path.expanduser(dl_manager.manual_dir))
             panx_path = os.path.join(path_to_manual_folder, _PAN_X_FOLDER)
-
             if not os.path.exists(panx_path):
                 raise FileNotFoundError(
-                    "{} does not exist. Make sure you insert a manual dir via `nlp.load('wikihow', data_dir=...)` that includes {}. Manual download instructions: {}".format(
-                        panx_path, _PAN_X_FOLDER, self.MANUAL_DOWNLOAD_INSTRUCTIONS
+                    "{} does not exist. Make sure you insert a manual dir via `datasets.load_dataset('xtreme', data_dir=...)` that includes {}. Manual download instructions: {}".format(
+                        panx_path, _PAN_X_FOLDER, self.manual_download_instructions
                     )
                 )
 
             panx_dl_dir = dl_manager.extract(panx_path)
             lang = self.config.name.split(".")[1]
-            lang_folder = dl_manager.extract(os.path.join(panx_dl_dir, lang + ".tar.gz"))
+            lang_folder = dl_manager.extract(os.path.join(panx_dl_dir, "panx_dataset", lang + ".tar.gz"))
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION,
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={
                         "filepath": os.path.join(lang_folder, "dev")
                         # we exclude Arabic NYUAD which deos not contains any word, only _
                     },
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.TEST,
+                datasets.SplitGenerator(
+                    name=datasets.Split.TEST,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": os.path.join(lang_folder, "test")},
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.TRAIN,
+                datasets.SplitGenerator(
+                    name=datasets.Split.TRAIN,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={"filepath": os.path.join(lang_folder, "train")},
                 ),
@@ -749,7 +759,7 @@ class Xtreme(nlp.GeneratorBasedBuilder):
         # TODO(xtreme): Yields (key, example) tuples from the dataset
 
         if self.config.name == "tydiqa" or self.config.name.startswith("MLQA") or self.config.name == "SQuAD":
-            with open(filepath) as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
                 for article in data["data"]:
                     title = article.get("title", "").strip()
@@ -769,10 +779,10 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                                 "context": context,
                                 "question": question,
                                 "id": id_,
-                                "answers": {"answer_start": answer_starts, "text": answers,},
+                                "answers": {"answer_start": answer_starts, "text": answers},
                             }
         if self.config.name == "XNLI":
-            with open(filepath) as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = csv.DictReader(f, delimiter="\t")
                 for id_, row in enumerate(data):
                     yield id_, {
@@ -782,13 +792,14 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                         "gold_label": row["gold_label"],
                     }
         if self.config.name.startswith("PAWS-X"):
-            with open(filepath) as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = csv.reader(f, delimiter="\t")
+                next(data)  # skip header
                 for id_, row in enumerate(data):
                     if len(row) == 4:
                         yield id_, {"sentence1": row[1], "sentence2": row[2], "label": row[3]}
         if self.config.name.startswith("XQuAD"):
-            with open(filepath) as f:
+            with open(filepath, encoding="utf-8") as f:
                 xquad = json.load(f)
                 for article in xquad["data"]:
                     for paragraph in article["paragraphs"]:
@@ -806,10 +817,10 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                                 "context": context,
                                 "question": question,
                                 "id": id_,
-                                "answers": {"answer_start": answer_starts, "text": answers,},
+                                "answers": {"answer_start": answer_starts, "text": answers},
                             }
         if self.config.name.startswith("bucc18"):
-            files = os.listdir(filepath)
+            files = sorted(os.listdir(filepath))
             target_file = "/"
             source_file = "/"
             source_target_file = "/"
@@ -820,13 +831,13 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                     source_target_file = os.path.join(filepath, file)
                 else:
                     source_file = os.path.join(filepath, file)
-            with open(target_file) as f:
+            with open(target_file, encoding="utf-8") as f:
                 data = csv.reader(f, delimiter="\t")
                 target_sentences = [row for row in data]
-            with open(source_file) as f:
+            with open(source_file, encoding="utf-8") as f:
                 data = csv.reader(f, delimiter="\t")
                 source_sentences = [row for row in data]
-            with open(source_target_file) as f:
+            with open(source_target_file, encoding="utf-8") as f:
                 data = csv.reader(f, delimiter="\t")
                 source_target_ids = [row for row in data]
             for id_, pair in enumerate(source_target_ids):
@@ -855,10 +866,10 @@ class Xtreme(nlp.GeneratorBasedBuilder):
             target_file = filepath[1]
             source_sentences = []
             target_sentences = []
-            with open(source_file) as f1:
+            with open(source_file, encoding="utf-8") as f1:
                 for row in f1:
                     source_sentences.append(row)
-            with open(target_file) as f2:
+            with open(target_file, encoding="utf-8") as f2:
                 for row in f2:
                     target_sentences.append(row)
             for i in range(len(source_sentences)):
@@ -870,16 +881,33 @@ class Xtreme(nlp.GeneratorBasedBuilder):
                 }
         if self.config.name.startswith("udpos"):
             for id_file, file in enumerate(filepath):
-                with open(file) as f:
+                with open(file, encoding="utf-8") as f:
                     data = csv.reader(f, delimiter="\t", quoting=csv.QUOTE_NONE)
                     for id_row, row in enumerate(data):
                         if len(row) >= 10 and row[1] != "_":
                             yield str(id_file) + "_" + str(id_row), {"word": row[1], "pos_tag": row[3]}
         if self.config.name.startswith("PAN-X"):
-            with open(filepath) as f:
-                data = csv.reader(f, delimiter="\t", quoting=csv.QUOTE_NONE)
-                for id_, row in enumerate(data):
-                    if row:
-                        lang, word = row[0].split(":")[0], row[0].split(":")[1]
-                        tag = row[1]
-                        yield id_, {"word": word, "ner_tag": tag, "lang": lang}
+            guid_index = 1
+            with open(filepath, encoding="utf-8") as f:
+                words = []
+                ner_tags = []
+                langs = []
+                for line in f:
+                    if line.startswith("-DOCSTART-") or line == "" or line == "\n":
+                        if words:
+                            yield guid_index, {"words": words, "ner": ner_tags, "langs": langs}
+                            guid_index += 1
+                            words = []
+                            ner_tags = []
+                            langs = []
+                    else:
+                        # pan-x data is tab separated
+                        splits = line.split("\t")
+                        # strip out en: prefix
+                        langs.append(splits[0][:2])
+                        words.append(splits[0][3:])
+                        if len(splits) > 1:
+                            ner_tags.append(splits[-1].replace("\n", ""))
+                        else:
+                            # examples have no label in test set
+                            ner_tags.append("O")

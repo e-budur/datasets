@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace NLP Authors.
+# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ from abc import ABC, abstractmethod
 
 import six
 
-import nlp
+import datasets
 
 
 _DESCRIPTION = """\
@@ -39,18 +39,18 @@ Translate dataset based on the data from statmt.org.
 
 Versions exists for the different years using a combination of multiple data
 sources. The base `wmt_translate` allows you to create your own config to choose
-your own data/language pair by creating a custom `nlp.translate.wmt.WmtConfig`.
+your own data/language pair by creating a custom `datasets.translate.wmt.WmtConfig`.
 
 ```
-config = nlp.wmt.WmtConfig(
+config = datasets.wmt.WmtConfig(
     version="0.0.1",
     language_pair=("fr", "de"),
     subsets={
-        nlp.Split.TRAIN: ["commoncrawl_frde"],
-        nlp.Split.VALIDATION: ["euelections_dev2019"],
+        datasets.Split.TRAIN: ["commoncrawl_frde"],
+        datasets.Split.VALIDATION: ["euelections_dev2019"],
     },
 )
-builder = nlp.builder("wmt_translate", config=config)
+builder = datasets.builder("wmt_translate", config=config)
 ```
 
 """
@@ -65,28 +65,28 @@ class SubDataset(object):
     def __init__(self, name, target, sources, url, path, manual_dl_files=None):
         """Sub-dataset of WMT.
 
-    Args:
-      name: `string`, a unique dataset identifier.
-      target: `string`, the target language code.
-      sources: `set<string>`, the set of source language codes.
-      url: `string` or `(string, string)`, URL(s) or URL template(s) specifying
-        where to download the raw data from. If two strings are provided, the
-        first is used for the source language and the second for the target.
-        Template strings can either contain '{src}' placeholders that will be
-        filled in with the source language code, '{0}' and '{1}' placeholders
-        that will be filled in with the source and target language codes in
-        alphabetical order, or all 3.
-      path: `string` or `(string, string)`, path(s) or path template(s)
-        specifing the path to the raw data relative to the root of the
-        downloaded archive. If two strings are provided, the dataset is assumed
-        to be made up of parallel text files, the first being the source and the
-        second the target. If one string is provided, both languages are assumed
-        to be stored within the same file and the extension is used to determine
-        how to parse it. Template strings should be formatted the same as in
-        `url`.
-      manual_dl_files: `<list>(string)` (optional), the list of files that must
-        be manually downloaded to the data directory.
-    """
+        Args:
+          name: `string`, a unique dataset identifier.
+          target: `string`, the target language code.
+          sources: `set<string>`, the set of source language codes.
+          url: `string` or `(string, string)`, URL(s) or URL template(s) specifying
+            where to download the raw data from. If two strings are provided, the
+            first is used for the source language and the second for the target.
+            Template strings can either contain '{src}' placeholders that will be
+            filled in with the source language code, '{0}' and '{1}' placeholders
+            that will be filled in with the source and target language codes in
+            alphabetical order, or all 3.
+          path: `string` or `(string, string)`, path(s) or path template(s)
+            specifing the path to the raw data relative to the root of the
+            downloaded archive. If two strings are provided, the dataset is assumed
+            to be made up of parallel text files, the first being the source and the
+            second the target. If one string is provided, both languages are assumed
+            to be stored within the same file and the extension is used to determine
+            how to parse it. Template strings should be formatted the same as in
+            `url`.
+          manual_dl_files: `<list>(string)` (optional), the list of files that must
+            be manually downloaded to the data directory.
+        """
         self._paths = (path,) if isinstance(path, six.string_types) else path
         self._urls = (url,) if isinstance(url, six.string_types) else url
         self._manual_dl_files = manual_dl_files if manual_dl_files else []
@@ -432,7 +432,7 @@ _TRAIN_SUBSETS = [
         name=ss,
         target="en",
         sources={"zh"},
-        url="ftp://cwmt-wmt:cwmt-wmt@nlp.nju.edu.cn/parallel/%s.zip" % ss,
+        url="ftp://cwmt-wmt:cwmt-wmt@datasets.nju.edu.cn/parallel/%s.zip" % ss,
         path=("%s/*_c[hn].txt" % ss, "%s/*_en.txt" % ss),
     )
     for ss in CWMT_SUBSET_NAMES
@@ -627,24 +627,24 @@ _CZENG17_FILTER = SubDataset(
 )
 
 
-class WmtConfig(nlp.BuilderConfig):
+class WmtConfig(datasets.BuilderConfig):
     """BuilderConfig for WMT."""
 
     def __init__(self, url=None, citation=None, description=None, language_pair=(None, None), subsets=None, **kwargs):
         """BuilderConfig for WMT.
 
-    Args:
-      url: The reference URL for the dataset.
-      citation: The paper citation for the dataset.
-      description: The description of the dataset.
-      language_pair: pair of languages that will be used for translation. Should
-                 contain 2 letter coded strings. For example: ("en", "de").
-        configuration for the `nlp.features.text.TextEncoder` used for the
-        `nlp.features.text.Translation` features.
-      subsets: Dict[split, list[str]]. List of the subset to use for each of the
-        split. Note that WMT subclasses overwrite this parameter.
-      **kwargs: keyword arguments forwarded to super.
-    """
+        Args:
+          url: The reference URL for the dataset.
+          citation: The paper citation for the dataset.
+          description: The description of the dataset.
+          language_pair: pair of languages that will be used for translation. Should
+                     contain 2 letter coded strings. For example: ("en", "de").
+            configuration for the `datasets.features.text.TextEncoder` used for the
+            `datasets.features.text.Translation` features.
+          subsets: Dict[split, list[str]]. List of the subset to use for each of the
+            split. Note that WMT subclasses overwrite this parameter.
+          **kwargs: keyword arguments forwarded to super.
+        """
         name = "%s-%s" % (language_pair[0], language_pair[1])
         if "name" in kwargs:  # Add name suffix for custom configs
             name += "." + kwargs.pop("name")
@@ -656,15 +656,17 @@ class WmtConfig(nlp.BuilderConfig):
         self.language_pair = language_pair
         self.subsets = subsets
 
+        # TODO(PVP): remove when manual dir works
+        # +++++++++++++++++++++
+        if language_pair[1] in ["cs", "hi", "ru"]:
+            assert NotImplementedError(
+                "The dataset for {}-en is currently not fully supported.".format(language_pair[1])
+            )
+        # +++++++++++++++++++++
 
-class Wmt(ABC, nlp.GeneratorBasedBuilder):
+
+class Wmt(ABC, datasets.GeneratorBasedBuilder):
     """WMT translation dataset."""
-
-    MANUAL_DOWNLOAD_INSTRUCTIONS = """\
-  Some of the wmt configs here, require a manual download.
-  Please look into wmt.py to see the exact path (and file name) that has to
-  be downloaded.
-  """
 
     def __init__(self, *args, **kwargs):
         if type(self) == Wmt and "config" not in kwargs:  # pylint: disable=unidiomatic-typecheck
@@ -699,9 +701,11 @@ class Wmt(ABC, nlp.GeneratorBasedBuilder):
 
     def _info(self):
         src, target = self.config.language_pair
-        return nlp.DatasetInfo(
+        return datasets.DatasetInfo(
             description=_DESCRIPTION,
-            features=nlp.Features({"translation": nlp.features.Translation(languages=self.config.language_pair)}),
+            features=datasets.Features(
+                {"translation": datasets.features.Translation(languages=self.config.language_pair)}
+            ),
             supervised_keys=(src, target),
             homepage=self.config.url,
             citation=self.config.citation,
@@ -754,10 +758,10 @@ class Wmt(ABC, nlp.GeneratorBasedBuilder):
         extraction_map = dict(downloaded_files, **manual_files)
 
         for language in self.config.language_pair:
-            self._vocab_text_gen(self.subsets[nlp.Split.TRAIN], extraction_map, language)
+            self._vocab_text_gen(self.subsets[datasets.Split.TRAIN], extraction_map, language)
 
         return [
-            nlp.SplitGenerator(  # pylint:disable=g-complex-comprehension
+            datasets.SplitGenerator(  # pylint:disable=g-complex-comprehension
                 name=split, gen_kwargs={"split_subsets": split_subsets, "extraction_map": extraction_map}
             )
             for split, split_subsets in self.subsets.items()
@@ -866,7 +870,7 @@ def _parse_parallel_sentences(f1, f2):
         # Note: We can't use the XML parser since some of the files are badly
         # formatted.
         seg_re = re.compile(r"<seg id=\"\d+\">(.*)</seg>")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 seg_match = re.match(seg_re, line)
                 if seg_match:
@@ -878,8 +882,8 @@ def _parse_parallel_sentences(f1, f2):
 
     # Some datasets (e.g., CWMT) contain multiple parallel files specified with
     # a wildcard. We sort both sets to align them and parse them one by one.
-    f1_files = glob.glob(f1)
-    f2_files = glob.glob(f2)
+    f1_files = sorted(glob.glob(f1))
+    f2_files = sorted(glob.glob(f2))
 
     assert f1_files and f2_files, "No matching files found: %s, %s." % (f1, f2)
     assert len(f1_files) == len(f2_files), "Number of files do not match: %d vs %d for %s vs %s." % (
@@ -906,9 +910,9 @@ def _parse_parallel_sentences(f1, f2):
 
 
 def _parse_frde_bitext(fr_path, de_path):
-    with open(fr_path) as f:
+    with open(fr_path, encoding="utf-8") as f:
         fr_sentences = f.read().split("\n")
-    with open(de_path) as f:
+    with open(de_path, encoding="utf-8") as f:
         de_sentences = f.read().split("\n")
     assert len(fr_sentences) == len(de_sentences), "Sizes do not match: %d vs %d for %s vs %s." % (
         len(fr_sentences),
@@ -954,7 +958,7 @@ def _parse_tsv(path, language_pair=None):
         l1, l2 = lang_match.groups()
     else:
         l1, l2 = language_pair
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for j, line in enumerate(f):
             cols = line.split("\t")
             if len(cols) != 2:
@@ -969,7 +973,7 @@ def _parse_wikiheadlines(path):
     lang_match = re.match(r".*\.([a-z][a-z])-([a-z][a-z])$", path)
     assert lang_match is not None, "Invalid Wikiheadlines filename: %s" % path
     l1, l2 = lang_match.groups()
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line_id, line in enumerate(f):
             s1, s2 = line.split("|||")
             yield line_id, {l1: s1.strip(), l2: s2.strip()}
@@ -980,12 +984,12 @@ def _parse_czeng(*paths, **kwargs):
     filter_path = kwargs.get("filter_path", None)
     if filter_path:
         re_block = re.compile(r"^[^-]+-b(\d+)-\d\d[tde]")
-        with open(filter_path) as f:
+        with open(filter_path, encoding="utf-8") as f:
             bad_blocks = {blk for blk in re.search(r"qw{([\s\d]*)}", f.read()).groups()[0].split()}
         logging.info("Loaded %d bad blocks to filter from CzEng v1.6 to make v1.7.", len(bad_blocks))
 
     for path in paths:
-        for gz_path in glob.glob(path):
+        for gz_path in sorted(glob.glob(path)):
             with open(gz_path, "rb") as g, gzip.GzipFile(fileobj=g) as f:
                 filename = os.path.basename(gz_path)
                 for line_id, line in enumerate(f):
@@ -1005,7 +1009,7 @@ def _parse_czeng(*paths, **kwargs):
 
 
 def _parse_hindencorp(path):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line_id, line in enumerate(f):
             split_line = line.split("\t")
             if len(split_line) != 5:

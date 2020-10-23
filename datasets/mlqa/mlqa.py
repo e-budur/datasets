@@ -5,7 +5,7 @@ from __future__ import absolute_import, division, print_function
 import json
 import os
 
-import nlp
+import datasets
 
 
 # TODO(mlqa): BibTeX citation
@@ -22,7 +22,7 @@ _CITATION = """\
 _DESCRIPTION = """\
     MLQA (MultiLingual Question Answering) is a benchmark dataset for evaluating cross-lingual question answering performance.
     MLQA consists of over 5K extractive QA instances (12K in English) in SQuAD format in seven languages - English, Arabic,
-    German, Spanish, Hindi, Vietnamese and Simplified Chinese. MLQA is highly parallel, with QA instances parallel between 
+    German, Spanish, Hindi, Vietnamese and Simplified Chinese. MLQA is highly parallel, with QA instances parallel between
     4 different languages on average.
 """
 _URL = "https://dl.fbaipublicfiles.com/MLQA/"
@@ -33,7 +33,7 @@ _LANG = ["ar", "de", "vi", "zh", "en", "es", "hi"]
 _TRANSLATE_LANG = ["ar", "de", "vi", "zh", "es", "hi"]
 
 
-class MlqaConfig(nlp.BuilderConfig):
+class MlqaConfig(datasets.BuilderConfig):
     def __init__(self, data_url, **kwargs):
         """BuilderConfig for MLQA
 
@@ -41,15 +41,20 @@ class MlqaConfig(nlp.BuilderConfig):
           data_url: `string`, url to the dataset
           **kwargs: keyword arguments forwarded to super.
         """
-        super(MlqaConfig, self).__init__(version=nlp.Version("1.0.0",), **kwargs)
+        super(MlqaConfig, self).__init__(
+            version=datasets.Version(
+                "1.0.0",
+            ),
+            **kwargs,
+        )
         self.data_url = data_url
 
 
-class Mlqa(nlp.GeneratorBasedBuilder):
+class Mlqa(datasets.GeneratorBasedBuilder):
     """TODO(mlqa): Short description of my dataset."""
 
     # TODO(mlqa): Set up version.
-    VERSION = nlp.Version("1.0.0")
+    VERSION = datasets.Version("1.0.0")
     BUILDER_CONFIGS = (
         [
             MlqaConfig(
@@ -82,19 +87,19 @@ class Mlqa(nlp.GeneratorBasedBuilder):
     )
 
     def _info(self):
-        # TODO(mlqa): Specifies the nlp.DatasetInfo object
-        return nlp.DatasetInfo(
+        # TODO(mlqa): Specifies the datasets.DatasetInfo object
+        return datasets.DatasetInfo(
             # This is the description that will appear on the datasets page.
             description=_DESCRIPTION,
-            # nlp.features.FeatureConnectors
-            features=nlp.Features(
+            # datasets.features.FeatureConnectors
+            features=datasets.Features(
                 {
-                    "context": nlp.Value("string"),
-                    "questions": nlp.features.Sequence({"question": nlp.Value("string")}),
-                    "answers": nlp.features.Sequence(
-                        {"text": nlp.Value("string"), "answer_start": nlp.Value("int32"),}
+                    "context": datasets.Value("string"),
+                    "question": datasets.Value("string"),
+                    "answers": datasets.features.Sequence(
+                        {"answer_start": datasets.Value("int32"), "text": datasets.Value("string")}
                     ),
-                    "ids": nlp.features.Sequence({"idx": nlp.Value("string")})
+                    "id": datasets.Value("string"),
                     # These are the features of your dataset like images, labels ...
                 }
             ),
@@ -110,32 +115,30 @@ class Mlqa(nlp.GeneratorBasedBuilder):
     def _split_generators(self, dl_manager):
         """Returns SplitGenerators."""
         # TODO(mlqa): Downloads the data and defines the splits
-        # dl_manager is a nlp.download.DownloadManager that can be used to
+        # dl_manager is a datasets.download.DownloadManager that can be used to
         # download and extract URLs
         if self.config.name.startswith("mlqa-translate-train"):
             dl_file = dl_manager.download_and_extract(self.config.data_url)
             lang = self.config.name.split(".")[-1]
             return [
-                nlp.SplitGenerator(
-                    name=nlp.Split.TRAIN,
+                datasets.SplitGenerator(
+                    name=datasets.Split.TRAIN,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={
                         "filepath": os.path.join(
                             os.path.join(dl_file, "mlqa-translate-train"),
                             "{}_squad-translate-train-train-v1.1.json".format(lang),
-                        ),
-                        "lang": lang,
+                        )
                     },
                 ),
-                nlp.SplitGenerator(
-                    name=nlp.Split.VALIDATION,
+                datasets.SplitGenerator(
+                    name=datasets.Split.VALIDATION,
                     # These kwargs will be passed to _generate_examples
                     gen_kwargs={
                         "filepath": os.path.join(
                             os.path.join(dl_file, "mlqa-translate-train"),
                             "{}_squad-translate-train-dev-v1.1.json".format(lang),
-                        ),
-                        "lang": lang,
+                        )
                     },
                 ),
             ]
@@ -146,25 +149,23 @@ class Mlqa(nlp.GeneratorBasedBuilder):
                 name = self.config.name.split(".")
                 l1, l2 = name[1:]
                 return [
-                    nlp.SplitGenerator(
-                        name=nlp.Split.TEST,
+                    datasets.SplitGenerator(
+                        name=datasets.Split.TEST,
                         # These kwargs will be passed to _generate_examples
                         gen_kwargs={
                             "filepath": os.path.join(
                                 os.path.join(dl_file, "MLQA_V1/test"),
                                 "test-context-{}-question-{}.json".format(l1, l2),
-                            ),
-                            "lang": (l1, l2),
+                            )
                         },
                     ),
-                    nlp.SplitGenerator(
-                        name=nlp.Split.VALIDATION,
+                    datasets.SplitGenerator(
+                        name=datasets.Split.VALIDATION,
                         # These kwargs will be passed to _generate_examples
                         gen_kwargs={
                             "filepath": os.path.join(
                                 os.path.join(dl_file, "MLQA_V1/dev"), "dev-context-{}-question-{}.json".format(l1, l2)
-                            ),
-                            "lang": (l1, l2),
+                            )
                         },
                     ),
                 ]
@@ -173,35 +174,35 @@ class Mlqa(nlp.GeneratorBasedBuilder):
                     dl_file = dl_manager.download_and_extract(self.config.data_url)
                     lang = self.config.name.split(".")[-1]
                     return [
-                        nlp.SplitGenerator(
-                            name=nlp.Split.TEST,
+                        datasets.SplitGenerator(
+                            name=datasets.Split.TEST,
                             # These kwargs will be passed to _generate_examples
                             gen_kwargs={
                                 "filepath": os.path.join(
                                     os.path.join(dl_file, "mlqa-translate-test"),
                                     "translate-test-context-{}-question-{}.json".format(lang, lang),
-                                ),
-                                "lang": lang,
+                                )
                             },
                         ),
                     ]
 
-    def _generate_examples(self, filepath, lang):
+    def _generate_examples(self, filepath):
         """Yields examples."""
         # TODO(mlqa): Yields (key, example) tuples from the dataset
-        with open(filepath) as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
-        for id1, examples in enumerate(data["data"]):
-            for id2, example in enumerate(examples["paragraphs"]):
+        for examples in data["data"]:
+            for example in examples["paragraphs"]:
                 context = example["context"]
-                questions = [qa["question"] for qa in example["qas"]]
-                answers = [qa["answers"] for qa in example["qas"]]
-                ids = [qa["id"] for qa in example["qas"]]
-                answers_start = [answer[0]["answer_start"] for answer in answers]
-                answers_text = [answer[0]["text"] for answer in answers]
-                yield str(id1) + "-" + str(id2), {
-                    "context": context,
-                    "questions": {"question": questions,},
-                    "answers": {"answer_start": answers_start, "text": answers_text},
-                    "ids": {"idx": ids},
-                }
+                for qa in example["qas"]:
+                    question = qa["question"]
+                    id_ = qa["id"]
+                    answers = qa["answers"]
+                    answers_start = [answer["answer_start"] for answer in answers]
+                    answers_text = [answer["text"] for answer in answers]
+                    yield id_, {
+                        "context": context,
+                        "question": question,
+                        "answers": {"answer_start": answers_start, "text": answers_text},
+                        "id": id_,
+                    }

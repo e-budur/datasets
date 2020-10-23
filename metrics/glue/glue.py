@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The HuggingFace NLP Authors.
+# Copyright 2020 The HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,11 @@
 # limitations under the License.
 """ GLUE benchmark metric. """
 
-import nlp
 from scipy.stats import pearsonr, spearmanr
-from sklearn.metrics import matthews_corrcoef, f1_score
+from sklearn.metrics import f1_score, matthews_corrcoef
+
+import datasets
+
 
 _CITATION = """\
 @inproceedings{wang2019glue,
@@ -25,8 +27,7 @@ _CITATION = """\
   note={In the Proceedings of ICLR.},
   year={2019}
 }
-Note that each GLUE dataset has its own citation. Please see the source to see
-the correct citation for each contained dataset."""
+"""
 
 _DESCRIPTION = """\
 GLUE, the General Language Understanding Evaluation benchmark
@@ -35,25 +36,24 @@ evaluating, and analyzing natural language understanding systems.
 """
 
 _KWARGS_DESCRIPTION = """
-Computes BLEU score of translated segments against one or more references.
+Compute GLUE evaluation metric associated to each GLUE dataset.
 Args:
-    predictions: list of translations to score.
+    predictions: list of predictions to score.
         Each translation should be tokenized into a list of tokens.
     references: list of lists of references for each translation.
         Each reference should be tokenized into a list of tokens.
-    max_order: Maximum n-gram order to use when computing BLEU score.
-    smooth: Whether or not to apply Lin et al. 2004 smoothing.
-Returns:
-    'bleu': bleu score,
-    'precisions': geometric mean of n-gram precisions,
-    'brevity_penalty': brevity penalty,
-    'length_ratio': ratio of lengths,
-    'translation_length': translation_length,
-    'reference_length': reference_length
+Returns: depending on the GLUE subset, one or several of:
+    "accuracy": Accuracy
+    "f1": F1 score
+    "pearson": Pearson Correlation
+    "spearmanr": Spearman Correlation
+    "matthews_correlation": Matthew Correlation
 """
+
 
 def simple_accuracy(preds, labels):
     return (preds == labels).mean()
+
 
 def acc_and_f1(preds, labels):
     acc = simple_accuracy(preds, labels)
@@ -62,6 +62,7 @@ def acc_and_f1(preds, labels):
         "accuracy": acc,
         "f1": f1,
     }
+
 
 def pearson_and_spearman(preds, labels):
     pearson_corr = pearsonr(preds, labels)[0]
@@ -72,24 +73,40 @@ def pearson_and_spearman(preds, labels):
     }
 
 
-class Glue(nlp.Metric):
+class Glue(datasets.Metric):
     def _info(self):
-        if self.config_name not in ["sst2", "mnli", "mnli_mismatched", "mnli_matched",
-                "cola", "stsb", "mrpc", "qqp", "qnli", "rte", "wnli", "hans"]:
-            raise KeyError('You should supply a configuration name selected in '
-                           '["sst2", "mnli", "mnli_mismatched", "mnli_matched", '
-                           '"cola", "stsb", "mrpc", "qqp", "qnli", "rte", "wnli", "hans"]')
-        return nlp.MetricInfo(
+        if self.config_name not in [
+            "sst2",
+            "mnli",
+            "mnli_mismatched",
+            "mnli_matched",
+            "cola",
+            "stsb",
+            "mrpc",
+            "qqp",
+            "qnli",
+            "rte",
+            "wnli",
+            "hans",
+        ]:
+            raise KeyError(
+                "You should supply a configuration name selected in "
+                '["sst2", "mnli", "mnli_mismatched", "mnli_matched", '
+                '"cola", "stsb", "mrpc", "qqp", "qnli", "rte", "wnli", "hans"]'
+            )
+        return datasets.MetricInfo(
             description=_DESCRIPTION,
             citation=_CITATION,
             inputs_description=_KWARGS_DESCRIPTION,
-            features=nlp.Features({
-                'predictions': nlp.Value('int64' if self.config_name != 'sts-b' else 'float32'),
-                'references': nlp.Value('int64' if self.config_name != 'sts-b' else 'float32'),
-            }),
+            features=datasets.Features(
+                {
+                    "predictions": datasets.Value("int64" if self.config_name != "stsb" else "float32"),
+                    "references": datasets.Value("int64" if self.config_name != "stsb" else "float32"),
+                }
+            ),
             codebase_urls=[],
             reference_urls=[],
-            format='numpy'
+            format="numpy",
         )
 
     def _compute(self, predictions, references):
@@ -102,6 +119,8 @@ class Glue(nlp.Metric):
         elif self.config_name in ["sst2", "mnli", "mnli_mismatched", "mnli_matched", "qnli", "rte", "wnli", "hans"]:
             return {"accuracy": simple_accuracy(predictions, references)}
         else:
-            raise KeyError('You should supply a configuration name selected in '
-                           '["sst2", "mnli", "mnli_mismatched", "mnli_matched", '
-                           '"cola", "stsb", "mrpc", "qqp", "qnli", "rte", "wnli", "hans"]')
+            raise KeyError(
+                "You should supply a configuration name selected in "
+                '["sst2", "mnli", "mnli_mismatched", "mnli_matched", '
+                '"cola", "stsb", "mrpc", "qqp", "qnli", "rte", "wnli", "hans"]'
+            )

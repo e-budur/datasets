@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace NLP Authors.
+# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,9 +26,7 @@ import xml.etree.cElementTree as etree
 
 import six
 
-import apache_beam as beam
-import mwparserfromhell
-import nlp
+import datasets
 
 
 if six.PY3:
@@ -39,9 +37,9 @@ else:
 
 _CITATION = """\
 @ONLINE {wikidump,
-    author = "Wikimedia Foundation",
-    title  = "Wikimedia Downloads",
-    url    = "https://dumps.wikimedia.org"
+    author = {Wikimedia Foundation},
+    title  = {Wikimedia Downloads},
+    url    = {https://dumps.wikimedia.org}
 }
 """
 
@@ -369,18 +367,18 @@ _BASE_URL_TMPL = "https://dumps.wikimedia.org/{lang}wiki/{date}/"
 _INFO_FILE = "dumpstatus.json"
 
 
-class WikipediaConfig(nlp.BuilderConfig):
+class WikipediaConfig(datasets.BuilderConfig):
     """BuilderConfig for Wikipedia."""
 
     def __init__(self, language=None, date=None, **kwargs):
         """BuilderConfig for Wikipedia.
 
-    Args:
-      language: string, the language code for the Wikipedia dump to use.
-      date: string, date of the Wikipedia dump in YYYYMMDD format. A list of
-        available dates can be found at https://dumps.wikimedia.org/enwiki/.
-      **kwargs: keyword arguments forwarded to super.
-    """
+        Args:
+          language: string, the language code for the Wikipedia dump to use.
+          date: string, date of the Wikipedia dump in YYYYMMDD format. A list of
+            available dates can be found at https://dumps.wikimedia.org/enwiki/.
+          **kwargs: keyword arguments forwarded to super.
+        """
         super(WikipediaConfig, self).__init__(
             name="{0}.{1}".format(date, language),
             description="Wikipedia dataset for {0}, parsed from {1} dump.".format(language, date),
@@ -390,30 +388,34 @@ class WikipediaConfig(nlp.BuilderConfig):
         self.language = language
 
 
-_VERSION = nlp.Version("1.0.0", "New split API (https://tensorflow.org/datasets/splits)")
+_VERSION = datasets.Version("1.0.0", "")
 
 
-class Wikipedia(nlp.BeamBasedBuilder):
+class Wikipedia(datasets.BeamBasedBuilder):
     """Wikipedia dataset."""
 
     # Use mirror (your.org) to avoid download caps.
 
     BUILDER_CONFIGS = [
-        WikipediaConfig(version=_VERSION, language=lang, date="20200501",)  # pylint:disable=g-complex-comprehension
+        WikipediaConfig(
+            version=_VERSION,
+            language=lang,
+            date="20200501",
+        )  # pylint:disable=g-complex-comprehension
         for lang in WIKIPEDIA_LANGUAGES
     ]
 
     def _info(self):
-        return nlp.DatasetInfo(
+        return datasets.DatasetInfo(
             description=_DESCRIPTION,
-            features=nlp.Features({"title": nlp.Value("string"), "text": nlp.Value("string"),}),
+            features=datasets.Features({"title": datasets.Value("string"), "text": datasets.Value("string")}),
             # No default supervised_keys.
             supervised_keys=None,
             homepage="https://dumps.wikimedia.org",
             citation=_CITATION,
         )
 
-    def _split_generators(self, dl_manager):
+    def _split_generators(self, dl_manager, pipeline):
         def _base_url(lang):
             return _BASE_URL_TMPL.format(lang=lang.replace("-", "_"), date=self.config.date)
 
@@ -425,12 +427,14 @@ class Wikipedia(nlp.BeamBasedBuilder):
 
         xml_urls = []
         total_bytes = 0
-        with open(downloaded_files["info"]) as f:
+        with open(downloaded_files["info"], encoding="utf-8") as f:
             dump_info = json.load(f)
         multistream_dump_info = dump_info["jobs"]["articlesmultistreamdump"]
-        assert multistream_dump_info["status"] == "done", (
-            "Specified dump (%s) multistream status is not 'done': %s"
-            % (_base_url(lang), multistream_dump_info["status"])
+        assert (
+            multistream_dump_info["status"] == "done"
+        ), "Specified dump (%s) multistream status is not 'done': %s" % (
+            _base_url(lang),
+            multistream_dump_info["status"],
         )
 
         for fname, info in multistream_dump_info["files"].items():
@@ -441,20 +445,24 @@ class Wikipedia(nlp.BeamBasedBuilder):
 
             # Use dictionary since testing mock always returns the same result.
         downloaded_files = dl_manager.download({"xml": xml_urls})
+        if not pipeline.is_local():
+            downloaded_files = dl_manager.ship_files_with_pipeline(downloaded_files, pipeline)
 
         return [
-            nlp.SplitGenerator(  # pylint:disable=g-complex-comprehension
-                name=nlp.Split.TRAIN, gen_kwargs={"filepaths": downloaded_files["xml"], "language": lang}
+            datasets.SplitGenerator(  # pylint:disable=g-complex-comprehension
+                name=datasets.Split.TRAIN, gen_kwargs={"filepaths": downloaded_files["xml"], "language": lang}
             )
         ]
 
     def _build_pcollection(self, pipeline, filepaths, language):
         """Build PCollection of examples in the raw (text) form."""
+        import apache_beam as beam
+        import mwparserfromhell
 
         def _extract_content(filepath):
             """Extracts article content from a single WikiMedia XML file."""
             logging.info("generating examples from = %s", filepath)
-            with open(filepath, "rb") as f:
+            with beam.io.filesystems.FileSystems.open(filepath) as f:
                 f = bz2.BZ2File(filename=f)
                 if six.PY3:
                     # Workaround due to:
@@ -495,7 +503,7 @@ class Wikipedia(nlp.BeamBasedBuilder):
             """Cleans raw wikicode to extract text."""
             id_, title, raw_content = inputs
             try:
-                text = _parse_and_clean_wikicode(raw_content)
+                text = _parse_and_clean_wikicode(raw_content, parser=mwparserfromhell)
             except (mwparserfromhell.parser.ParserError) as e:
                 beam.metrics.Metrics.counter(language, "parser-error").inc()
                 logging.error("mwparserfromhell ParseError: %s", e)
@@ -511,16 +519,16 @@ class Wikipedia(nlp.BeamBasedBuilder):
 
         return (
             pipeline
-            | beam.Create(filepaths)
-            | beam.FlatMap(_extract_content)
-            | beam.transforms.Reshuffle()
-            | beam.FlatMap(_clean_content)
+            | "Initialize" >> beam.Create(filepaths)
+            | "Extract content" >> beam.FlatMap(_extract_content)
+            | "Distribute" >> beam.transforms.Reshuffle()
+            | "Clean content" >> beam.FlatMap(_clean_content)
         )
 
 
-def _parse_and_clean_wikicode(raw_content):
+def _parse_and_clean_wikicode(raw_content, parser):
     """Strips formatting and unwanted sections from raw page content."""
-    wikicode = mwparserfromhell.parse(raw_content)
+    wikicode = parser.parse(raw_content)
 
     # Filters for references, tables, and file/image links.
     re_rm_wikilink = re.compile("^(?:File|Image|Media):", flags=re.IGNORECASE | re.UNICODE)
